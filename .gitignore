@@ -31,8 +31,8 @@ __pycache__/
 # macOS dir files
 .DS_Store
 
-exp
-data
+exp*
+data*
 raw_wav
 tensorboard
 **/*build*

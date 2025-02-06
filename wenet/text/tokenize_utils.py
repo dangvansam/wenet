@@ -16,7 +16,7 @@ import re
 
 
 def tokenize_by_bpe_model(sp, txt):
-    return _tokenize_by_seg_dic_or_bpe_model(txt, sp=sp, upper=True)
+    return _tokenize_by_seg_dic_or_bpe_model(txt, sp=sp, upper=False)
 
 
 def tokenize_by_seg_dict(seg_dict, txt):

@@ -17,7 +17,7 @@ fi
 export CUDA_VISIBLE_DEVICES="${gpu_list}"
 echo "CUDA_VISIBLE_DEVICES is ${CUDA_VISIBLE_DEVICES}"
 
-stage=2
+stage=1
 stop_stage=5
 
 HOST_NODE_ADDR="localhost:0"
@@ -26,24 +26,24 @@ job_id=2023
 
 # Optional train_config
 # 1. conf/train_transformer_large.yaml: Standard transformer
-train_config=conf/train_u2++_efficonformer_v2_bpe2000.yaml
+train_config=conf/train_u2++_efficonformer_v2_unigram5000.yaml
 checkpoint=
 num_workers=8
 do_delta=false
 
 # bpemode (unigram or bpe)
-nbpe=2000
-bpemode=bpe
+nbpe=5000
+bpemode=unigram
 
 # data
 data_url=
 # use your own data path
 datadir=
 # wav data dir
-wave_data=data_asr_tts_new_lower
+wave_data=data_asr_tts_new
 data_type=raw
 
-dir=exp_${wave_data}/train_u2++_efficonformer_v2_bpe2000
+dir=exp_${wave_data}/train_u2++_efficonformer_v2_${bpemode}${nbpe}
 tensorboard_dir=tensorboard
 
 # use average_checkpoint will get better result
@@ -59,7 +59,7 @@ set -o pipefail
 
 train_set=train
 dev_set=dev
-recog_set="common_voice_17_0_test vivos_test"
+recog_set="dev"
 
 train_engine=torch_ddp
 
@@ -98,32 +98,35 @@ fi
 dict=$wave_data/lang_char/${train_set}_${bpemode}${nbpe}_units.txt
 bpemodel=$wave_data/lang_char/${train_set}_${bpemode}${nbpe}
 echo "dictionary: ${dict}"
+
 if [ ${stage} -le 2 ] && [ ${stop_stage} -ge 2 ]; then
   echo "stage 2: Dictionary and Json Data Preparation"
   mkdir -p $wave_data/lang_char/
 
-  if [ -f "${bpemodel}.model" ]; then
-    echo "BPE model already exists at ${bpemodel}.model. Skipping training."
-  else
-    echo "Training BPE model..."
-    # Combine train and dev text files for training the BPE model
-    cut -f 2- -d" " $wave_data/${train_set}/text $wave_data/${dev_set}/text > $wave_data/lang_char/train_text.txt
-    cat $wave_data/lang_char/train_text.txt > $wave_data/lang_char/input.txt
+if [ -f "${bpemodel}.model" ]; then
+  echo "BPE model already exists at ${bpemodel}.model. Skipping training."
+else
+  echo "Training BPE model..."
+  # Combine train and dev text files for training the BPE model
+  cut -f 2- -d" " $wave_data/${train_set}/text $wave_data/${dev_set}/text > $wave_data/lang_char/train_text.txt
+  # cat /home/andrew/data/lm_text_052023.txt $wave_data/lang_char/train_text.txt > $wave_data/lang_char/input.txt
+  cat $wave_data/lang_char/train_text.txt > $wave_data/lang_char/input.txt
     head -n 3000000 /home/andrew/data/lm_text_052023.txt >> $wave_data/lang_char/input.txt
-    tools/spm_train --input=$wave_data/lang_char/input.txt --vocab_size=${nbpe} --model_type=${bpemode} --model_prefix=${bpemodel} --input_sentence_size=100000000
-  fi
-    # Create dictionary by reading vocab file line-by-line and assigning consecutive IDs
-    # Start assigning IDs from 3 (since 0, 1, 2 are already used for special tokens)
-    echo "<blank> 0" > ${dict}  # 0 will be used for "blank" in CTC
-    echo "<unk> 1" >> ${dict}   # <unk> must be 1
-    echo "<sos/eos> 2" >> ${dict} # <sos/eos>
-    awk '{print $1 " " NR-1}' $bpemodel.vocab | tail -n +4 >> ${dict}  # Skip the first 3 lines for <unk>, <sos/eos>
+  tools/spm_train --input=$wave_data/lang_char/input.txt --vocab_size=${nbpe} --model_type=${bpemode} --model_prefix=${bpemodel} --input_sentence_size=100000000
+fi
+  # Create dictionary by reading vocab file line-by-line and assigning consecutive IDs
+  # Start assigning IDs from 3 (since 0, 1, 2 are already used for special tokens)
+  echo "<blank> 0" > ${dict}  # 0 will be used for "blank" in CTC
+  echo "<unk> 1" >> ${dict}   # <unk> must be 1
+  echo "<sos/eos> 2" >> ${dict} # <sos/eos>
+  awk '{print $1 " " NR-1}' $bpemodel.vocab | tail -n +4 >> ${dict}  # Skip the first 3 lines for <unk>, <sos/eos>
 fi
 
 if [ ${stage} -le 3 ] && [ ${stop_stage} -ge 3 ]; then
   # Prepare wenet required data
   echo "Prepare data, prepare required format"
-  for x in $dev_set ${recog_set} $train_set ; do
+  # for x in $dev_set ${recog_set} $train_set ; do
+  for x in $dev_set $train_set ; do
     tools/make_raw_list.py $wave_data/$x/wav.scp $wave_data/$x/text $wave_data/$x/data.list
   done
 fi
@@ -186,7 +189,7 @@ if [ ${stage} -le 5 ] && [ ${stop_stage} -ge 5 ]; then
       --data_type raw \
       --test_data $wave_data/$test/data.list \
       --checkpoint $decode_checkpoint \
-      --beam_size 20 \
+      --beam_size 10 \
       --batch_size 16 \
       --blank_penalty 0.0 \
       --result_dir $result_dir \
@@ -195,7 +198,7 @@ if [ ${stage} -le 5 ] && [ ${stop_stage} -ge 5 ]; then
 
     for mode in $decode_modes; do
       test_dir=$result_dir/$mode
-      python tools/compute-wer.py --char=0 --v=1 \
+      python tools/compute-wer.py --char=1 --v=1 \
         $wave_data/$test/text $test_dir/text > $test_dir/wer
     done
   done

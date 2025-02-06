@@ -796,6 +796,7 @@ def update_parameter_and_lr(model, optimizer, scheduler, scaler, info_dict):
 def log_per_step(writer, info_dict, timer: Optional[StepTimer] = None):
     tag = info_dict["tag"]
     step = info_dict["step"]
+    max_epoch = info_dict["max_epoch"]
     batch_idx = info_dict["batch_idx"]
     loss_dict = info_dict['loss_dict']
     epoch = info_dict.get('epoch', 0)
@@ -803,23 +804,21 @@ def log_per_step(writer, info_dict, timer: Optional[StepTimer] = None):
     accum_grad = info_dict.get('accum_grad', 1) if tag != "CV" else 1
     log_interval = info_dict.get('log_interval', 10)
     lrs = info_dict.get("lrs", [0.0])
-    is_gradient_accumulation_boundary = info_dict.get(
-        "is_gradient_accumulation_boundary", False)
+    is_gradient_accumulation_boundary = info_dict.get("is_gradient_accumulation_boundary", False)
 
     rank = int(os.environ.get('RANK', 0))
     # TRAIN Tensorboard
     if tag == "TRAIN" and rank == 0 and writer is not None:
-        if (train_engine == "deepspeed" and is_gradient_accumulation_boundary
-            ) or (train_engine in ["torch_ddp", "torch_fsdp"] and
-                  (batch_idx + 1) % accum_grad == 0):
+        if (train_engine == "deepspeed" and is_gradient_accumulation_boundary) \
+            or (train_engine in ["torch_ddp", "torch_fsdp"] \
+            and (batch_idx + 1) % accum_grad == 0):
             writer.add_scalar('train/train_loss',
                               tensor_to_scalar(loss_dict['loss']) * accum_grad,
                               step)
             writer.add_scalar('train/grad_norm', info_dict['grad_norm'], step)
             for name, value in loss_dict.items():
                 if name != 'loss' and value is not None:
-                    writer.add_scalar('train/{}'.format(name),
-                                      tensor_to_scalar(value), step)
+                    writer.add_scalar('train/{}'.format(name), tensor_to_scalar(value), step)
             # lr
             for i, lr in enumerate(lrs):
                 writer.add_scalar('train/lr_{}'.format(i), lr, step)
@@ -829,8 +828,8 @@ def log_per_step(writer, info_dict, timer: Optional[StepTimer] = None):
             writer.add_scalar('cv/{}'.format(name), tensor_to_scalar(value),
                               step)
         logging.info(
-            'Epoch {} Step {} CV info lr {} cv_loss {} rank {} acc {}'.format(
-                epoch, step + 1, lrs_to_str(lrs),
+            'Epoch {}/{} Step {} CV info lr {} cv_loss {} rank {} acc {}'.format(
+                epoch, max_epoch, step + 1, lrs_to_str(lrs),
                 tensor_to_scalar(loss_dict["loss"]), rank,
                 tensor_to_scalar(loss_dict["acc"])))
         return
@@ -844,7 +843,7 @@ def log_per_step(writer, info_dict, timer: Optional[StepTimer] = None):
                 timer_step = info_dict['cv_step']
             steps_per_second = timer.steps_per_second(timer_step)
             log_str += 'steps/sec {:.3f}| '.format(steps_per_second)
-        log_str += 'Batch {}/{} loss {:.6f} '.format(
+        log_str += 'Epoch {} - Batch {}: loss {:.6f} '.format(
             epoch, batch_idx + 1 if 'save_interval' not in info_dict else
             (step + 1) * accum_grad,
             tensor_to_scalar(loss_dict['loss']) * accum_grad)

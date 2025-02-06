@@ -127,8 +127,10 @@ def main():
 
     # Get executor
     tag = configs["init_infos"].get("tag", "init")
-    executor = Executor(global_step=configs["init_infos"].get('step', -1),
-                        device=device)
+    executor = Executor(
+        global_step=configs["init_infos"].get('step', -1),
+        device=device
+    )
 
     # Init scaler, used for pytorch amp mixed precision training
     scaler = init_scaler(args)
@@ -136,29 +138,31 @@ def main():
     # Start training loop
     start_epoch = configs["init_infos"].get('epoch', 0) + int("epoch_" in tag)
     # if save_interval in configs, steps mode else epoch mode
-    end_epoch = configs.get('max_epoch',
-                            100) if "save_interval" not in configs else 1
+    end_epoch = configs.get('max_epoch', 100) if "save_interval" not in configs else 1
     assert start_epoch <= end_epoch
     configs.pop("init_infos", None)
     final_epoch = None
     for epoch in range(start_epoch, end_epoch):
         configs['epoch'] = epoch
-
         lrs = [group['lr'] for group in optimizer.param_groups]
-        logging.info('Epoch {} Step {} TRAIN info lr {} rank {}'.format(
-            epoch, executor.step, lrs_to_str(lrs), rank))
-
-        dist.barrier(
-        )  # NOTE(xcsong): Ensure all ranks start Train at the same time.
+        logging.info(f'Epoch {epoch}/{end_epoch},  global step {executor.step}: lr {lrs_to_str(lrs)} rank {rank}')
+        dist.barrier()  # NOTE(xcsong): Ensure all ranks start Train at the same time.
         # NOTE(xcsong): Why we need a new group? see `train_utils.py::wenet_join`
-        group_join = dist.new_group(
-            backend="gloo", timeout=datetime.timedelta(seconds=args.timeout))
-        executor.train(model, optimizer, scheduler, train_data_loader,
-                       cv_data_loader, writer, configs, scaler, group_join)
+        group_join = dist.new_group(backend="gloo", timeout=datetime.timedelta(seconds=args.timeout))
+        executor.train(
+            model=model,
+            optimizer=optimizer,
+            scheduler=scheduler,
+            train_data_loader=train_data_loader,
+            cv_data_loader=cv_data_loader,
+            writer=writer,
+            configs=configs,
+            scaler=scaler,
+            group_join=group_join
+        )
         dist.destroy_process_group(group_join)
 
-        dist.barrier(
-        )  # NOTE(xcsong): Ensure all ranks start CV at the same time.
+        dist.barrier()  # NOTE(xcsong): Ensure all ranks start CV at the same time.
         loss_dict = executor.cv(model, cv_data_loader, configs)
         info_dict = {
             'epoch': epoch,

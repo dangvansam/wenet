@@ -107,9 +107,9 @@ def detect_language(sample, limited_langs):
     #   given we know for certain that the training data only consists of
     #   Chinese and English, is to limit the classification results to reduce
     #   the impact of misclassification.
-    lid.set_languages(limited_langs)
+    # lid.set_languages(limited_langs)
     # i.e., ('zh', 0.9999999909903544)
-    sample['lang'] = lid.classify(sample['txt'])[0]
+    sample['lang'] = "vi" # lid.classify(sample['txt'])[0]
     return sample
 
 

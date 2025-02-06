@@ -442,7 +442,12 @@ class WenetRawDatasetSource(IterDataPipe):
             self.dp = self.dp.shuffle(buffer_size=shuffle_size)
         self.dp = self.dp.repeat(cycle).prefetch(prefetch)
         self.dp = self.dp.shard(partition)
+        
+        self.num_lines = len(open(filenames).readlines())
 
+    def __len__(self):
+        return self.num_lines
+    
     def __iter__(self):
         for d in self.dp:
             yield d

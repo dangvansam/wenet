@@ -115,7 +115,7 @@ def Dataset(data_type,
         spec_trim_conf = conf.get('spec_trim_conf', {})
         dataset = dataset.map(partial(processor.spec_trim, **spec_trim_conf))
 
-    language_conf = conf.get('language_conf', {"limited_langs": ['zh', 'en']})
+    language_conf = conf.get('language_conf', {"limited_langs": ['zh', 'en', 'vi']})
     dataset = dataset.map(partial(processor.detect_language, **language_conf))
     dataset = dataset.map(processor.detect_task)
 

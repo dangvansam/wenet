@@ -21,6 +21,7 @@ from contextlib import nullcontext
 # if your python version < 3.7 use the below one
 # from contextlib import suppress as nullcontext
 import torch
+import torch.distributed as dist
 from wenet.utils.common import StepTimer
 
 from wenet.utils.train_utils import (wenet_join, batch_forward, batch_backward,
@@ -46,8 +47,7 @@ class Executor:
             self.train_step_timer = StepTimer(self.step)
         model.train()
         info_dict = copy.deepcopy(configs)
-        logging.info('using accumulate grad, new batch size is {} times'
-                     ' larger than before'.format(info_dict['accum_grad']))
+        logging.info('using accumulate grad, new batch size is {} times larger than before'.format(info_dict['accum_grad']))
         # A context manager to be used in conjunction with an instance of
         # torch.nn.parallel.DistributedDataParallel to be able to train
         # with uneven inputs across participating processes.
@@ -71,9 +71,8 @@ class Executor:
                 # Disable gradient synchronizations across DDP processes.
                 # Within this context, gradients will be accumulated on module
                 # variables, which will later be synchronized.
-                if info_dict.get("train_engine", "torch_ddp") in [
-                        "torch_ddp", "torch_fsdp"
-                ] and (batch_idx + 1) % info_dict["accum_grad"] != 0:
+                if info_dict.get("train_engine", "torch_ddp") in ["torch_ddp", "torch_fsdp"] \
+                    and (batch_idx + 1) % info_dict["accum_grad"] != 0:
                     context = model.no_sync
                 # Used for single gpu training and DDP gradient synchronization
                 # processes.
@@ -81,8 +80,7 @@ class Executor:
                     context = nullcontext
 
                 with context():
-                    info_dict = batch_forward(model, batch_dict, scaler,
-                                              info_dict, self.device)
+                    info_dict = batch_forward(model, batch_dict, scaler, info_dict, self.device)
                     info_dict = batch_backward(model, scaler, info_dict)
 
                 info_dict = update_parameter_and_lr(model, optimizer,
@@ -91,10 +89,9 @@ class Executor:
                 # write training: tensorboard && log
                 log_per_step(writer, info_dict, timer=self.train_step_timer)
                 save_interval = info_dict.get('save_interval', sys.maxsize)
-                if (self.step +
-                        1) % save_interval == 0 and self.step != 0 and (
-                            batch_idx + 1) % info_dict["accum_grad"] == 0:
-                    import torch.distributed as dist
+                if (self.step + 1) % save_interval == 0 \
+                    and self.step != 0 \
+                    and (batch_idx + 1) % info_dict["accum_grad"] == 0:
                     # Ensure all ranks start CV at the same time in step mode
                     dist.barrier()
                     loss_dict = self.cv(model, cv_data_loader, configs)
@@ -114,8 +111,7 @@ class Executor:
                     log_per_step(writer, info_dict)
                     # Ensure all ranks start Train at the same time in step mode
                     dist.barrier()
-                self.step += 1 if (batch_idx +
-                                   1) % info_dict["accum_grad"] == 0 else 0
+                self.step += 1 if (batch_idx + 1) % info_dict["accum_grad"] == 0 else 0
 
     def cv(self, model, cv_data_loader, configs):
         ''' Cross validation on
