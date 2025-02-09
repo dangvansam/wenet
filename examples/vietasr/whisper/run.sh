@@ -163,7 +163,7 @@ if [ ${stage} -le 2 ] && [ ${stop_stage} -ge 2 ]; then
     --result_dir $result_dir \
     ${decoding_chunk_size:+--decoding_chunk_size $decoding_chunk_size}
   for mode in ${decode_modes}; do
-    python tools/compute-wer.py --char=1 --v=1 \
+    python tools/compute-wer.py --char=0 --v=1 \
       data/test/text $result_dir/$mode/text > $result_dir/$mode/wer
   done
 fi

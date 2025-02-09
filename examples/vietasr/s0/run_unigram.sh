@@ -40,7 +40,7 @@ data_url=
 # use your own data path
 datadir=
 # wav data dir
-wave_data=data_asr_tts_new
+wave_data=data_asr_tts_new_lower
 data_type=raw
 
 dir=exp_${wave_data}/train_u2++_efficonformer_v2_${bpemode}${nbpe}
@@ -92,7 +92,6 @@ if [ ${stage} -le 1 ] && [ ${stop_stage} -ge 1 ]; then
   tools/compute_cmvn_stats.py --num_workers 16 --train_config $train_config \
     --in_scp $wave_data/$train_set/wav.scp \
     --out_cmvn $wave_data/$train_set/global_cmvn
-
 fi
 
 dict=$wave_data/lang_char/${train_set}_${bpemode}${nbpe}_units.txt
@@ -109,9 +108,8 @@ else
   echo "Training BPE model..."
   # Combine train and dev text files for training the BPE model
   cut -f 2- -d" " $wave_data/${train_set}/text $wave_data/${dev_set}/text > $wave_data/lang_char/train_text.txt
-  # cat /home/andrew/data/lm_text_052023.txt $wave_data/lang_char/train_text.txt > $wave_data/lang_char/input.txt
   cat $wave_data/lang_char/train_text.txt > $wave_data/lang_char/input.txt
-    head -n 3000000 /home/andrew/data/lm_text_052023.txt >> $wave_data/lang_char/input.txt
+  head -n 3000000 /home/andrew/data/lm_text_052023.txt >> $wave_data/lang_char/input.txt
   tools/spm_train --input=$wave_data/lang_char/input.txt --vocab_size=${nbpe} --model_type=${bpemode} --model_prefix=${bpemodel} --input_sentence_size=100000000
 fi
   # Create dictionary by reading vocab file line-by-line and assigning consecutive IDs
@@ -198,7 +196,7 @@ if [ ${stage} -le 5 ] && [ ${stop_stage} -ge 5 ]; then
 
     for mode in $decode_modes; do
       test_dir=$result_dir/$mode
-      python tools/compute-wer.py --char=1 --v=1 \
+      python tools/compute-wer.py --char=0 --v=1 \
         $wave_data/$test/text $test_dir/text > $test_dir/wer
     done
   done
