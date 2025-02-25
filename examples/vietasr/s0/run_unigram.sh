@@ -17,7 +17,7 @@ fi
 export CUDA_VISIBLE_DEVICES="${gpu_list}"
 echo "CUDA_VISIBLE_DEVICES is ${CUDA_VISIBLE_DEVICES}"
 
-stage=1
+stage=5
 stop_stage=5
 
 HOST_NODE_ADDR="localhost:0"
@@ -168,12 +168,16 @@ if [ ${stage} -le 5 ] && [ ${stop_stage} -ge 5 ]; then
   mkdir -p $dir/test
   if [ ${average_checkpoint} == true ]; then
     decode_checkpoint=$dir/avg_${average_num}.pt
-    echo "do model average and final checkpoint is $decode_checkpoint"
-    python wenet/bin/average_model.py \
-      --dst_model $decode_checkpoint \
-      --src_path $dir  \
-      --num ${average_num} \
-      --val_best
+    if [ -f $decode_checkpoint ]; then
+      echo "decode_checkpoint $decode_checkpoint already exist, skip"
+    else
+      echo "do model average and final checkpoint is $decode_checkpoint"
+      python wenet/bin/average_model.py \
+        --dst_model $decode_checkpoint \
+        --src_path $dir  \
+        --num ${average_num} \
+        --val_best
+    fi
   fi
   # Specify decoding_chunk_size if it's a unified dynamic chunk trained model
   # -1 for full chunk
@@ -187,7 +191,7 @@ if [ ${stage} -le 5 ] && [ ${stop_stage} -ge 5 ]; then
       --data_type raw \
       --test_data $wave_data/$test/data.list \
       --checkpoint $decode_checkpoint \
-      --beam_size 10 \
+      --beam_size 20 \
       --batch_size 16 \
       --blank_penalty 0.0 \
       --result_dir $result_dir \
@@ -196,8 +200,10 @@ if [ ${stage} -le 5 ] && [ ${stop_stage} -ge 5 ]; then
 
     for mode in $decode_modes; do
       test_dir=$result_dir/$mode
-      python tools/compute-wer.py --char=0 --v=1 \
-        $wave_data/$test/text $test_dir/text > $test_dir/wer
+      decode_checkpoint_name=$(basename $decode_checkpoint)
+      current_datetime=$(date +"%y%m%d%H%M")
+      python tools/compute-wer.py --char=0 --v=0 \
+        $wave_data/$test/text $test_dir/text > $test_dir/wer.avg_${average_num}.${current_datetime}
     done
   done
 fi

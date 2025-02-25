@@ -69,48 +69,70 @@ def process_datasets(input_dir: str, output_dir: str):
          open(valid_path, "w", encoding="utf-8") as valid_file:
 
         # Find all transcripts.txt files in the dataset folder
-        transcript_files = glob.glob(os.path.join(input_dir, "**", "transcripts_lower.txt"), recursive=True)
-        transcript_files += glob.glob(os.path.join(input_dir, "**", "metadata_lower.txt"), recursive=True)
-
+        transcript_files = glob.glob(os.path.join(input_dir, "**", "transcripts_new.txt"), recursive=True)
+        transcript_files += glob.glob(os.path.join(input_dir, "**", "metadata_new.txt"), recursive=True)
+        print(transcript_files)
         # Iterate through each transcripts.txt file
         total = 0
         for i, transcript_file in enumerate(transcript_files):
+            if "vivos_test" not in transcript_file \
+            and "vivoice" not in transcript_file \
+            and "MSR-86K" not in transcript_file\
+            and "viet_bud500/test" not in transcript_file:
+                continue
             with open(transcript_file, "r", encoding="utf-8") as f:
                 lines = f.readlines()
                 random.seed(42)
                 random.shuffle(lines)
                 line_idx = 0
                 for line in tqdm(lines, desc=f"Processing [{i+1}/{len(transcript_files)}] {transcript_file.split('/')[-2]}"):
-                    line_idx += 1
                     parts = line.strip().split("|")
                     wav_path = parts[0]
-                    text = parts[1].strip(".?!").strip()
-                    # duration = parts[2]
+                    text = parts[1].strip()
+                    duration = float(parts[2])
                     # emotion = parts[3]
-                   
+
+                    if duration > 8 or len(text.split())  > 20:
+                        continue
+
                     utt_id = f'{transcript_file.split("/")[-2]}_{os.path.basename(wav_path).split(".")[0]}'
 
                     # Write data to files
-                    if line_idx > 0.995 * len(lines):
-                        valid_text_file.write(f"{utt_id} {text}\n")
-                        valid_wav_scp_file.write(f"{utt_id} {wav_path}\n")
+                    # if line_idx > 0.995 * len(lines):
+                        # valid_text_file.write(f"{utt_id} {text}\n")
+                        # valid_wav_scp_file.write(f"{utt_id} {wav_path}\n")
                         # valid_lang_file.write(f"{utt_id} <|vi|>\n")
                         # valid_emo_file.write(f"{utt_id} {emotion}\n")
                         # valid_event_file.write(f"{utt_id} <|Speech|>\n")
-                        valid_file.write(f"{wav_path}|{text}\n")
-                    else:
-                        text_file.write(f"{utt_id} {text}\n")
-                        wav_scp_file.write(f"{utt_id} {wav_path}\n")
+                        # valid_file.write(f"{wav_path}|{text}\n")
+                    # else:
+                        # text_file.write(f"{utt_id} {text}\n")
+                        # wav_scp_file.write(f"{utt_id} {wav_path}\n")
                         # lang_file.write(f"{utt_id} <|vi|>\n")
                         # emo_file.write(f"{utt_id} {emotion}\n")
                         # event_file.write(f"{utt_id} <|Speech|>\n")
-                        train_file.write(f"{wav_path}|{text}\n")
+                    line_idx += 1
                     
+                    if "vivos_test" in transcript_file:
+                        if line_idx >= 200:
+                            break
+                    elif "viet_bud500/test" in transcript_file:
+                        # if line_idx <= 100000:
+                        #     continue
+                        if line_idx >= 100:
+                            break
+                    else:
+                        if line_idx < 2000:
+                            continue
+                        if line_idx >= 2100:
+                            break
+                    valid_file.write(f"{wav_path}|{text}|{duration}\n")
+
                     total += 1
     print(f"Files generated and saved to: {output_dir} [Total: {total} utterances]")
 
 
 # Example usage
 input_directory = "/home/andrew/data"
-output_directory = "/home/andrew/wenet/examples/vietasr/s0/data_asr_tts_new_lower"
+output_directory = "/home/andrew/wenet/data_slt"
 process_datasets(input_directory, output_directory)

@@ -17,7 +17,7 @@ fi
 export CUDA_VISIBLE_DEVICES="${gpu_list}"
 echo "CUDA_VISIBLE_DEVICES is ${CUDA_VISIBLE_DEVICES}"
 
-stage=2
+stage=5
 stop_stage=5
 
 HOST_NODE_ADDR="localhost:0"
@@ -27,7 +27,7 @@ job_id=2023
 # Optional train_config
 # 1. conf/train_transformer_large.yaml: Standard transformer
 train_config=conf/train_u2++_efficonformer_v2_bpe2000.yaml
-checkpoint=
+checkpoint=/home/andrew/wenet/examples/vietasr/s0/exp_data_asr_tts_new_lower/train_u2++_efficonformer_v2_bpe2000/epoch_18.pt
 num_workers=8
 do_delta=false
 
@@ -167,6 +167,10 @@ if [ ${stage} -le 5 ] && [ ${stop_stage} -ge 5 ]; then
   mkdir -p $dir/test
   if [ ${average_checkpoint} == true ]; then
     decode_checkpoint=$dir/avg_${average_num}.pt
+    if [ -f $decode_checkpoint ]; then
+      echo "decode_checkpoint $decode_checkpoint already exist, removing..."
+      rm -vf $decode_checkpoint
+    fi
     echo "do model average and final checkpoint is $decode_checkpoint"
     python wenet/bin/average_model.py \
       --dst_model $decode_checkpoint \
@@ -195,8 +199,10 @@ if [ ${stage} -le 5 ] && [ ${stop_stage} -ge 5 ]; then
 
     for mode in $decode_modes; do
       test_dir=$result_dir/$mode
-      python tools/compute-wer.py --char=0 --v=1 \
-        $wave_data/$test/text $test_dir/text > $test_dir/wer
+      decode_checkpoint_name=$(basename $decode_checkpoint)
+      current_datetime=$(date +"%y%m%d%H%M")
+      python tools/compute-wer.py --char=0 --v=0 \
+        $wave_data/$test/text $test_dir/text > $test_dir/wer.avg_${average_num}.${current_datetime}
     done
   done
 fi
