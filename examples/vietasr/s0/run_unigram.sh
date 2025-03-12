@@ -50,7 +50,7 @@ tensorboard_dir=tensorboard
 average_checkpoint=true
 decode_checkpoint=$dir/final.pt
 # maybe you can try to adjust it if you can not get close results as README.md
-average_num=5
+average_num=3
 decode_modes="attention_rescoring ctc_greedy_search ctc_prefix_beam_search attention"
 
 set -e
@@ -59,7 +59,7 @@ set -o pipefail
 
 train_set=train
 dev_set=dev
-recog_set="dev"
+recog_set="common_voice_17_0_test vivos_test"
 
 train_engine=torch_ddp
 
@@ -168,16 +168,12 @@ if [ ${stage} -le 5 ] && [ ${stop_stage} -ge 5 ]; then
   mkdir -p $dir/test
   if [ ${average_checkpoint} == true ]; then
     decode_checkpoint=$dir/avg_${average_num}.pt
-    if [ -f $decode_checkpoint ]; then
-      echo "decode_checkpoint $decode_checkpoint already exist, skip"
-    else
-      echo "do model average and final checkpoint is $decode_checkpoint"
-      python wenet/bin/average_model.py \
-        --dst_model $decode_checkpoint \
-        --src_path $dir  \
-        --num ${average_num} \
-        --val_best
-    fi
+    echo "do model average and final checkpoint is $decode_checkpoint"
+    python wenet/bin/average_model.py \
+      --dst_model $decode_checkpoint \
+      --src_path $dir  \
+      --num ${average_num} \
+      --val_best
   fi
   # Specify decoding_chunk_size if it's a unified dynamic chunk trained model
   # -1 for full chunk
