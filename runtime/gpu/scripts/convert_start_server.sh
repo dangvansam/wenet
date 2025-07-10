@@ -19,8 +19,14 @@ onnx_model_dir=/ws/onnx_model
 model_repo=/ws/model_repo
 
 # Convert config.pbtxt in model_repo and move models
-python3 scripts/convert.py --config=$onnx_model_dir/train.yaml --vocab=$onnx_model_dir/words.txt \
-        --model_repo=$model_repo --onnx_model_dir=$onnx_model_dir
+echo "Convert config.pbtxt in model_repo and move models"
+python3 scripts/convert.py \
+        --config=$onnx_model_dir/train.yaml \
+        --vocab=$onnx_model_dir/words.txt \
+        --model_repo=$model_repo \
+        --onnx_model_dir=$onnx_model_dir
+        # --lm_path=$onnx_model_dir/lm \
 
 # Start server
-tritonserver --model-repository=${model_repo} --pinned-memory-pool-byte-size=1024000000 --cuda-memory-pool-byte-size=0:1024000000
+echo "Start server"
+tritonserver --log-verbose=0 --model-repository=${model_repo} --pinned-memory-pool-byte-size=1024000000 --cuda-memory-pool-byte-size=0:1024000000

@@ -50,7 +50,7 @@ tensorboard_dir=tensorboard
 average_checkpoint=true
 decode_checkpoint=$dir/final.pt
 # maybe you can try to adjust it if you can not get close results as README.md
-average_num=3
+average_num=5
 decode_modes="attention_rescoring ctc_greedy_search ctc_prefix_beam_search attention"
 
 set -e

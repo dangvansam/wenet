@@ -1,0 +1,30 @@
+version: '3.8'
+name: asr-service
+services:
+  server:
+    image: wenet_server:latest
+    build:
+      context: .
+      dockerfile: Dockerfile/Dockerfile.server
+    command: /workspace/scripts/convert_start_server.sh
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - capabilities: [gpu]
+              device_ids: ['0']
+    volumes:
+      - ./scripts:/workspace/scripts
+      - ./model_repo:/ws/model_repo
+      - /home/samdv/wenet/examples/vietasr/s0/exp_data_asr_tts_new_lower/train_u2++_efficonformer_v2_unigram5000/onnx/fp32:/ws/onnx_model
+    ports:
+      - "8000:8000"
+      - "8001:8001"
+      - "8002:8002"
+    shm_size: '1g'
+    ulimits:
+      memlock:
+        soft: -1
+        hard: -1
+    stdin_open: true
+    tty: true

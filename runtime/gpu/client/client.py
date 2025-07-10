@@ -70,6 +70,7 @@ if __name__ == "__main__":
         help="path prefix for wav_path in wavscp/audio_file",
     )
     parser.add_argument(
+        "-a",
         "--audio_file",
         type=str,
         required=False,
@@ -123,6 +124,8 @@ if __name__ == "__main__":
     )
 
     FLAGS = parser.parse_args()
+    
+    print("FLAGS:", FLAGS)
 
     # load data
     filenames = []
@@ -148,6 +151,8 @@ if __name__ == "__main__":
         for key, value in audio_data.items():
             filenames.append(value["path"])
             transcripts.append(value["text"])
+    else:
+        raise ValueError("Please specify audio_file or wavscp")
 
     num_workers = multiprocessing.cpu_count() // 2
 
@@ -175,15 +180,16 @@ if __name__ == "__main__":
     predictions = []
     tasks = []
     splits = np.array_split(filenames, num_workers)
-
+    
     for idx, per_split in enumerate(splits):
         cur_files = per_split.tolist()
         tasks.append((idx, cur_files))
-
+    
     with Pool(processes=num_workers) as pool:
         predictions = pool.map(single_job, tasks)
 
     predictions = [item for sublist in predictions for item in sublist]
+    
     if transcripts:
         cer = cal_cer(predictions, transcripts)
         print("CER is: {}".format(cer))
